@@ -10,12 +10,16 @@ first_item = operator.itemgetter(0)
 
 
 class MaxRects(PackingAlgorithm):
+    """
+    PackingAlgorithm is a handler for a BIN
+    MaxRects is a wrapper for PackingAlgorithm
+    """
 
-    def __init__(self, width, height, z, rot=True, *args, **kwargs):
-        super(MaxRects, self).__init__(width, height, z, rot, *args, **kwargs)
+    def __init__(self, width, height, z, capacity, rot=True, *args, **kwargs):
+        super(MaxRects, self).__init__(width, height, z, capacity, rot, *args, **kwargs)
         self.z = z
    
-    def _rect_fitness(self, max_rect, width, height, z):
+    def _rect_fitness(self, max_rect, width, height, z, weight):
         """
         Arguments:
             max_rect (Rectangle): Destination max_rect
@@ -156,7 +160,7 @@ class MaxRects(PackingAlgorithm):
         # Return fitness
         return self._rect_fitness(max_rect, rect.width, rect.height)
 
-    def add_rect(self, width, height, z, rid=None):
+    def add_rect(self, width, height, z, weight, rid=None):
         """
         Add rectangle of widthxheight dimensions.
 
@@ -166,8 +170,8 @@ class MaxRects(PackingAlgorithm):
             rid: Optional rectangle user id
 
         Returns:
-            Rectangle: Rectangle with placemente coordinates
-            None: If the rectangle couldn be placed.
+            Rectangle: Rectangle with placement coordinates
+            None: If the rectangle couldnt be placed.
         """
         assert(width > 0 and height >0)
 

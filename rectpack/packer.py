@@ -50,10 +50,11 @@ SORT_NONE = lambda rectlist: list(rectlist) # Unsorted
 
 class BinFactory(object):
 
-    def __init__(self, width, height, z, count, pack_algo, *args, **kwargs):
+    def __init__(self, width, height, z, capacity, count, pack_algo, *args, **kwargs):
         self._width = width
         self._height = height
         self._z = z
+        self._capacity = capacity
         self._count = count
         
         self._pack_algo = pack_algo
@@ -64,24 +65,24 @@ class BinFactory(object):
         self._bid = kwargs.get("bid", None)
 
     def _create_bin(self):
-        return self._pack_algo(self._width, self._height, self._z, *self._algo_args, **self._algo_kwargs)
+        return self._pack_algo(self._width, self._height, self._z, self._capacity, *self._algo_args, **self._algo_kwargs)
 
     def is_empty(self):
         return self._count<1
 
-    def fitness(self, width, height, z):
+    def fitness(self, width, height, z, weight):
         
         if not self._ref_bin:
             self._ref_bin = self._create_bin()
 
-        return self._ref_bin.fitness(width, height, z)
+        return self._ref_bin.fitness(width, height, z, weight)
 
-    def fits_inside(self, width, height, z):
+    def fits_inside(self, width, height, z, weight):
         # Determine if rectangle width x height will fit into empty bin
         if not self._ref_bin:
             self._ref_bin = self._create_bin()
 
-        return self._ref_bin._fits_surface(width, height, z)
+        return self._ref_bin._fits_surface(width, height, z, weight)
 
     def new_bin(self):
         if self._count > 0:
@@ -105,21 +106,23 @@ class PackerBNFMixin(object):
     """
     BNF (Bin Next Fit): Only one open bin at a time.  If the rectangle
     doesn't fit, close the current bin and go to the next.
+
+    Returns 
     """
 
-    def add_rect(self, width, height, z, rid=None):
+    def add_rect(self, width, height, z, weight, rid=None):
         while True:
 
             # if there are no open bins, try to open a new one
             if len(self._open_bins)==0:
 
                 # can we find an unopened bin that will hold this rect?
-                new_bin = self._new_open_bin(width, height, z, rid=rid)
+                new_bin = self._new_open_bin(width, height, z, weight, rid=rid)
                 if new_bin is None:
                     return None
 
             # we have at least one open bin, so check if it can hold this rect
-            rect = self._open_bins[0].add_rect(width, height, z, rid=rid)
+            rect = self._open_bins[0].add_rect(width, height, z, weight, rid=rid)
 
             if rect is not None:
                 return rect
@@ -135,22 +138,22 @@ class PackerBFFMixin(object):
     BFF (Bin First Fit): Pack rectangle in first bin it fits
     """
  
-    def add_rect(self, width, height, z, rid=None):
+    def add_rect(self, width, height, z, weight, rid=None):
         # see if this rect will fit in any of the open bins
         for b in self._open_bins:
-            rect = b.add_rect(width, height, z, rid=rid)
+            rect = b.add_rect(width, height, z, weight, rid=rid)
             if rect is not None:
                 return rect
 
         while True:
             # can we find an unopened bin that will hold this rect?
-            new_bin = self._new_open_bin(width, height, z, rid=rid)
+            new_bin = self._new_open_bin(width, height, z, weight, rid=rid)
             if new_bin is None:
                 return None
 
             # _new_open_bin may return a bin that's too small,
             # so we have to double-check
-            rect = new_bin.add_rect(width, height, z, rid=rid)
+            rect = new_bin.add_rect(width, height, z, weight, rid=rid)
             if rect is not None:
                 return rect
 
@@ -163,14 +166,14 @@ class PackerBBFMixin(object):
     # only create this getter once
     first_item = operator.itemgetter(0)
 
-    def add_rect(self, width, height, z, rid=None):
+    def add_rect(self, width, height, z, weight, rid=None):
  
         # Try packing into open bins
-        fit = ((b.fitness(width, height, z),  b) for b in self._open_bins)
+        fit = ((b.fitness(width, height, z, weight),  b) for b in self._open_bins)
         fit = (b for b in fit if b[0] is not None)
         try:
             _, best_bin = min(fit, key=self.first_item)
-            best_bin.add_rect(width, height, z, rid)
+            best_bin.add_rect(width, height, z, weight, rid)
             return True
         except ValueError:
             pass    
@@ -178,13 +181,13 @@ class PackerBBFMixin(object):
         # Try packing into one of the empty bins
         while True:
             # can we find an unopened bin that will hold this rect?
-            new_bin = self._new_open_bin(width, height, z, rid=rid)
+            new_bin = self._new_open_bin(width, height, z, weight, rid=rid)
             if new_bin is None:
                 return False
 
             # _new_open_bin may return a bin that's too small,
             # so we have to double-check
-            if new_bin.add_rect(width, height, z, rid):
+            if new_bin.add_rect(width, height, z, weight, rid):
                 return True
 
 
@@ -202,7 +205,10 @@ class PackerOnline(object):
         """
         self._rotation = rotation
         self._pack_algo = pack_algo
-        self.reset()
+        self._closed_bins = collections.deque()
+        self._open_bins = collections.deque()
+        self._empty_bins = collections.OrderedDict()
+        self._bin_count = itertools.count()
 
     def __iter__(self):
         return itertools.chain(self._closed_bins, self._open_bins)
@@ -230,7 +236,7 @@ class PackerOnline(object):
         else:
             return self._open_bins[key-len(self._closed_bins)]
 
-    def _new_open_bin(self, width=None, height=None, z=None, rid=None):
+    def _new_open_bin(self, width=None, height=None, z=None, weight=None, rid=None):
         """
         Extract the next empty bin and append it to open bins
 
@@ -245,7 +251,7 @@ class PackerOnline(object):
 
             # Only return the new bin if the rect fits.
             # (If width or height is None, caller doesn't know the size.)
-            if not binfac.fits_inside(width, height, z):
+            if not binfac.fits_inside(width, height, z, weight):
                 continue
            
             # Create bin and add to open_bins
@@ -266,10 +272,10 @@ class PackerOnline(object):
 
         return new_bin 
 
-    def add_bin(self, width, height, z, count=1, **kwargs):
+    def add_bin(self, width, height, z, capacity, count=1, **kwargs):
         # accept the same parameters as PackingAlgorithm objects
         kwargs['rot'] = self._rotation
-        bin_factory = BinFactory(width, height, z, count, self._pack_algo, **kwargs)
+        bin_factory = BinFactory(width, height, z, capacity, count, self._pack_algo, **kwargs)
         self._empty_bins[next(self._bin_count)] = bin_factory
 
     def rect_list(self):
@@ -326,12 +332,12 @@ class Packer(PackerOnline):
         self._sorted_rect = []
 
     # !!! 4 add z to add_bin (containers)
-    def add_bin(self, width, height, z, count=1, **kwargs):
-        self._avail_bins.append((width, height, z, count, kwargs))
+    def add_bin(self, width, height, z, capacity, count=1, **kwargs):
+        self._avail_bins.append((width, height, z, capacity, count, kwargs))
 
     # !!! 3 add z to add_rect (packages)
-    def add_rect(self, width, height, z, rid=None):
-        self._avail_rect.append((width, height, z, rid))
+    def add_rect(self, width, height, z, weight, rid=None):
+        self._avail_rect.append((width, height, z, weight, rid))
 
     def _is_everything_ready(self):
         return self._avail_rect and self._avail_bins
@@ -347,10 +353,10 @@ class Packer(PackerOnline):
         # Add available bins to packer
         for b in self._avail_bins:
             # !!! 5 adding z to be unpacked
-            width, height, z, count, extra_kwargs = b
+            width, height, z, capacity, count, extra_kwargs = b
 
             # !!! 6 adding z to add_bin (super)
-            super(Packer, self).add_bin(width, height, z, count, **extra_kwargs)
+            super(Packer, self).add_bin(width, height, z, capacity, count, **extra_kwargs)
 
         # If enabled sort rectangles
         self._sorted_rect = self._sort_algo(self._avail_rect)
@@ -451,7 +457,7 @@ class PackerGlobal(Packer, PackerBNFMixin):
             # rectangles fit inside.
             a_rectangle_fits = False
             for _, rect in remaining_rect.items():
-                if binfac.fits_inside(rect[0], rect[1], rect[2]):
+                if binfac.fits_inside(rect[0], rect[1], rect[2], rect[3]):
                     a_rectangle_fits = True
                     break
 
@@ -486,8 +492,8 @@ class PackerGlobal(Packer, PackerBNFMixin):
         
         # Add available bins to packer
         for b in self._avail_bins:
-            width, height, z, count, extra_kwargs = b
-            super(Packer, self).add_bin(width, height, z, count, **extra_kwargs)
+            width, height, z, capacity, count, extra_kwargs = b
+            super(Packer, self).add_bin(width, height, z, capacity, count, **extra_kwargs)
     
         # Store rectangles into dict for fast deletion
         self._sorted_rect = collections.OrderedDict(
