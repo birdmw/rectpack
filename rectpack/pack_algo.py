@@ -4,7 +4,7 @@ from .geometry import Rectangle
 class PackingAlgorithm(object):
     """PackingAlgorithm base class"""
 
-    def __init__(self, width, height, rot=True, bid=None, *args, **kwargs):
+    def __init__(self, width, height, z, rot=True, bid=None, *args, **kwargs):
         """
         Initialize packing algorithm
 
@@ -16,6 +16,7 @@ class PackingAlgorithm(object):
         """
         self.width = width
         self.height = height
+        self.z = z
         self.rot = rot
         self.rectangles = []
         self.bid = bid
@@ -28,7 +29,7 @@ class PackingAlgorithm(object):
     def __iter__(self):
         return iter(self.rectangles)
 
-    def _fits_surface(self, width, height):
+    def _fits_surface(self, width, height, z):
         """
         Test surface is big enough to place a rectangle
 
@@ -39,11 +40,12 @@ class PackingAlgorithm(object):
         Returns:
             boolean: True if it could be placed, False otherwise
         """
-        assert(width > 0 and height > 0)
+        assert(width > 0 and height > 0 and z > 0)
         if self.rot and (width > self.width or height > self.height):
             width, height = height, width
 
-        if width > self.width or height > self.height:
+        # !!! This seems like another place where the Z condition should live to reject
+        if width > self.width or height > self.height or z > self.z:
             return False
         else:
             return True
@@ -63,7 +65,7 @@ class PackingAlgorithm(object):
         """
         return sum(r.area() for r in self)
 
-    def fitness(self, width, height, rot = False):
+    def fitness(self, width, height, z, rot = False):
         """
         Metric used to rate how much space is wasted if a rectangle is placed.
         Returns a value greater or equal to zero, the smaller the value the more 
@@ -80,7 +82,7 @@ class PackingAlgorithm(object):
         """
         raise NotImplementedError
         
-    def add_rect(self, width, height, rid=None):
+    def add_rect(self, width, height, z, rid=None):
         """
         Add rectangle of widthxheight dimensions.
 

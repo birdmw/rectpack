@@ -11,10 +11,11 @@ first_item = operator.itemgetter(0)
 
 class MaxRects(PackingAlgorithm):
 
-    def __init__(self, width, height, rot=True, *args, **kwargs):
-        super(MaxRects, self).__init__(width, height, rot, *args, **kwargs)
+    def __init__(self, width, height, z, rot=True, *args, **kwargs):
+        super(MaxRects, self).__init__(width, height, z, rot, *args, **kwargs)
+        self.z = z
    
-    def _rect_fitness(self, max_rect, width, height):
+    def _rect_fitness(self, max_rect, width, height, z):
         """
         Arguments:
             max_rect (Rectangle): Destination max_rect
@@ -25,7 +26,10 @@ class MaxRects(PackingAlgorithm):
             None: Rectangle couldn't be placed into max_rect
             integer, float: fitness value 
         """
-        if width <= max_rect.width and height <= max_rect.height:
+
+        # !!! This must be where the condition which rejects based on height lives
+
+        if width <= max_rect.width and height <= max_rect.height and z <= max_rect.z:
             return 0
         else:
             return None
@@ -152,7 +156,7 @@ class MaxRects(PackingAlgorithm):
         # Return fitness
         return self._rect_fitness(max_rect, rect.width, rect.height)
 
-    def add_rect(self, width, height, rid=None):
+    def add_rect(self, width, height, z, rid=None):
         """
         Add rectangle of widthxheight dimensions.
 
