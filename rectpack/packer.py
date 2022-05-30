@@ -79,6 +79,7 @@ class BinFactory(object):
 
     def fits_inside(self, width, height, z, weight):
         # Determine if rectangle width x height will fit into empty bin
+
         if not self._ref_bin:
             self._ref_bin = self._create_bin()
 
@@ -273,6 +274,7 @@ class PackerOnline(object):
         return new_bin 
 
     def add_bin(self, width, height, z, capacity, count=1, **kwargs):
+        #print("addbin packeronline")
         # accept the same parameters as PackingAlgorithm objects
         kwargs['rot'] = self._rotation
         bin_factory = BinFactory(width, height, z, capacity, count, self._pack_algo, **kwargs)
@@ -283,6 +285,8 @@ class PackerOnline(object):
         bin_count = 0
 
         for abin in self:
+            #print("bin capacity", abin.capacity)
+            #print(" bin total capacity", abin.unloaded_capacity)
             for rect in abin:
                 rectangles.append((bin_count, rect.x, rect.y, rect.width, rect.height, rect.rid))
             bin_count += 1
@@ -333,6 +337,7 @@ class Packer(PackerOnline):
 
     # !!! 4 add z to add_bin (containers)
     def add_bin(self, width, height, z, capacity, count=1, **kwargs):
+        #print("packer add bin")
         self._avail_bins.append((width, height, z, capacity, count, kwargs))
 
     # !!! 3 add z to add_rect (packages)
@@ -352,10 +357,7 @@ class Packer(PackerOnline):
 
         # Add available bins to packer
         for b in self._avail_bins:
-            # !!! 5 adding z to be unpacked
             width, height, z, capacity, count, extra_kwargs = b
-
-            # !!! 6 adding z to add_bin (super)
             super(Packer, self).add_bin(width, height, z, capacity, count, **extra_kwargs)
 
         # If enabled sort rectangles

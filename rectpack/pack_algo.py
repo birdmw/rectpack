@@ -17,6 +17,7 @@ class PackingAlgorithm(object):
         self.width = width
         self.height = height
         self.z = z
+        self.unloaded_capacity = capacity
         self.capacity = capacity
         self.rot = rot
         self.rectangles = []
@@ -46,7 +47,7 @@ class PackingAlgorithm(object):
             width, height = height, width
 
         # !!! This seems like another place where the Z condition should live to reject
-        if width > self.width or height > self.height or z > self.z:
+        if width > self.width or height > self.height or z > self.z or self.capacity < weight:
             return False
         else:
             return True

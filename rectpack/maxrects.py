@@ -33,7 +33,7 @@ class MaxRects(PackingAlgorithm):
 
         # !!! This must be where the condition which rejects based on height lives
 
-        if width <= max_rect.width and height <= max_rect.height and z <= max_rect.z:
+        if width <= max_rect.width and height <= max_rect.height and z <= max_rect.z and weight <= max_rect.capacity :
             return 0
         else:
             return None
@@ -190,6 +190,10 @@ class MaxRects(PackingAlgorithm):
         # Store and return rectangle position.
         rect.rid = rid
         self.rectangles.append(rect)
+
+        # !!! after appending the package to rectangles, lower the capacity by the weight of the package
+        self.capacity -= weight
+
         return rect
 
     def reset(self):
