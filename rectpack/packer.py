@@ -54,13 +54,13 @@ class BinFactory(object):
         self._width = width
         self._height = height
         self._z = z
-        self._capacity = capacity
+        self._capacity = capacity # WEIGHT capcity for a bin
         self._count = count
         
-        self._pack_algo = pack_algo
+        self._pack_algo = pack_algo # this is the class that makes bins
         self._algo_kwargs = kwargs
         self._algo_args = args
-        self._ref_bin = None # Reference bin used to calculate fitness
+        self._ref_bin = None # this is the actual bin
         
         self._bid = kwargs.get("bid", None)
 

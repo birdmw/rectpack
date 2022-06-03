@@ -18,7 +18,7 @@ class PackingAlgorithm(object):
         self.height = height
         self.z = z
         self.unloaded_capacity = capacity
-        self.capacity = capacity
+        self.capacity = capacity # falls as items are added to the bin
         self.rot = rot
         self.rectangles = []
         self.bid = bid
